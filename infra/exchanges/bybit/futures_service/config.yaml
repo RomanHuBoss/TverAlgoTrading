@@ -1,0 +1,6 @@
+CSV_PATH: ./bybit_linear_futures.csv
+CACHE_TTL_SEC: 1800
+BYBIT_BASE_URL: https://api.bybit.com
+REQUEST_TIMEOUT_SEC: 10
+MAX_RETRIES: 5
+PAGE_SIZE_DEFAULT: 100
