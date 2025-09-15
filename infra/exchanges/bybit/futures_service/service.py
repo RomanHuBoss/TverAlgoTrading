@@ -222,21 +222,34 @@ def get_futures(
     page_size: conint(gt=0, le=1000) = Query(settings.PAGE_SIZE_DEFAULT),
     order: Literal["asc","desc"] = Query("asc"),
     contract_type: Literal["LinearFutures","LinearPerpetual","all"] = Query("LinearFutures"),
+    minage_years: Optional[PositiveInt] = Query(None, description="Минимальный возраст актива в годах по launchTime")
 ) -> FuturesListResponse:
+    csv_path = settings.CSV_PATH
     try:
         global cache
         cache = _build_cache()
         items = cache.load_all()
     except (requests.RequestException, RuntimeError) as e:
-        raise HTTPException(status_code=502, detail=f"Upstream error: {e}")
+        if csv_path.exists():
+            items = read_csv(csv_path)
+        else:
+            raise HTTPException(status_code=502, detail=f"Upstream error: {e}")
 
     if contract_type != "all":
         items = [it for it in items if it.contractType == contract_type]
+
+    # Фильтр по возрасту актива по launchTime (мс с эпохи)
+    if minage_years is not None:
+        now_ms = int(time.time() * 1000)
+        min_age_ms = int(minage_years * 365.2425 * 24 * 60 * 60 * 1000)
+        items = [it for it in items if (it.launchTime is not None and (now_ms - int(it.launchTime)) >= min_age_ms)]
 
     items.sort(key=lambda x: x.symbol)
     if order == "desc":
         items.reverse()
 
+    if page_size > 1000:
+        page_size = 1000
     total = len(items)
     start = (page-1)*page_size
     end = start+page_size
